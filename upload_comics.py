@@ -1,15 +1,28 @@
 import requests
 import os
 import random
-from download_comics import download_comics
+from download_comics import download_comic
 from dotenv import load_dotenv
+
+
+def handle_vk_response(response):
+    response_json = response.json()
+    if 'error' in response_json:
+        error_code = response_json['error']['error_code']
+        error_msg = response_json['error']['error_msg']
+        raise VKAPIError(f'Ошибка VK API: Код {error_code}, Сообщение: {error_msg}')
+    response.raise_for_status()
+    
+
+class VKAPIError(Exception):
+    pass
 
 
 def get_random_comic(last_comic_number):
     comic_number = random.randrange(1, last_comic_number, 1)
     url = f'https://xkcd.com/{comic_number}/info.0.json'
     response = requests.get(url)
-    response.raise_for_status()
+    handle_vk_response(response)
     return response.json()
 
 
@@ -21,7 +34,7 @@ def get_upload_url(access_token, group_id, version):
     }
     url = 'https://api.vk.com/method/photos.getWallUploadServer'
     response = requests.get(url, params=params)
-    response.raise_for_status()
+    handle_vk_response(response)
     return response.json()['response']['upload_url']
 
 
@@ -32,7 +45,7 @@ def upload_photos_to_server(access_token, group_id, version):
             'photo': file,
         }
         response = requests.post(url, files=files)
-    response.raise_for_status()
+    handle_vk_response(response)
     uploading_photo = response.json()
     return uploading_photo
 
@@ -48,7 +61,7 @@ def save_wall_photo(access_token, group_id, version, server, photo, photo_hash):
         "v": version
     }
     response = requests.post(url, params=data)
-    response.raise_for_status()
+    handle_vk_response(response)
     return response.json()['response'][0]
 
 
@@ -64,7 +77,7 @@ def post_comic_on_wall_vk(access_token: str, group_id: int, version: str, owner_
         "v": version
     }
     response = requests.post('https://api.vk.com/method/wall.post', params=payload)
-    response.raise_for_status()
+    handle_vk_response(response)
     return response.json()
 
 
@@ -77,7 +90,7 @@ def main():
     comic_info = get_random_comic(number_last_comic)
     
     try:
-        download_comics(comic_info['img'], 'image.png')
+        download_comic(comic_info['img'], 'image.png')
         uploading_photo = upload_photos_to_server(access_token, group_id, version)
         server = uploading_photo['server']
         photo = uploading_photo['photo']
@@ -86,8 +99,8 @@ def main():
         owner_id = save_photo['owner_id']
         media_id = save_photo['id']
         post_comic_on_wall_vk(access_token, group_id, version, owner_id, media_id, comic_info['alt'])
-    except ValueError:
-        print("Environment variables error!")
+    except VKAPIError as e:
+        print(f"Произошла ошибка VK API: {str(e)}")
     finally:
         os.remove('image.png')
 
