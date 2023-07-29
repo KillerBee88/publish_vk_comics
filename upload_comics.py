@@ -5,7 +5,7 @@ from download_comics import download_comics
 from dotenv import load_dotenv
 
 
-def get_comic_photo(last_comic_number):
+def get_random_comic(last_comic_number):
     comic_number = random.randrange(1, last_comic_number, 1)
     url = f'https://xkcd.com/{comic_number}/info.0.json'
     response = requests.get(url)
@@ -74,7 +74,7 @@ def main():
     group_id = int(os.environ['VK_GROUP_ID'])
     version = '5.131'
     number_last_comic = 2750
-    comic_info = get_comic_photo(number_last_comic)
+    comic_info = get_random_comic(number_last_comic)
     
     try:
         download_comics(comic_info['img'], 'image.png')
